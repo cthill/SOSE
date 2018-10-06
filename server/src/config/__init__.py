@@ -42,6 +42,9 @@ SQLITE_DB_INIT_FILE = config_json['sqlite_db_init_file']
 GAME_BIN_DIR = config_json['game_bin_dir']
 DATA_DIR = config_json['data_dir']
 
+# extensions
+EXTENSIONS = [key for key in config_json['extensions'] if config_json['extensions'][key]]
+
 # load block data json
 SOLID_BLOCK_DATA = []
 JUMP_THROUGH_BLOCK_DATA = []

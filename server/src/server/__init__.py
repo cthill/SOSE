@@ -1,6 +1,8 @@
 import logging
 import threading
 import time
+import traceback
+from importlib import import_module
 
 import config
 import db.sqlite
@@ -8,9 +10,12 @@ import server.account_server
 import server.game_server
 import server.web_server
 
+logger = logging.getLogger('server')
+
 class StickOnlineServer:
 
     def __init__(self):
+        self.running = False
         self.db = db.sqlite.SQLiteDB(config.SQLITE_DB_FILE, self)
         self.web_server = server.web_server.WebServer(config.INTERFACE_HTTP, config.PORT_HTTP, self)
         self.game_server = server.game_server.GameServer(config.INTERFACE, config.PORT_GAME, self)
@@ -20,6 +25,19 @@ class StickOnlineServer:
         threading.Thread(target=self.web_server).start()
         threading.Thread(target=self.account_server).start()
         threading.Thread(target=self.game_server).start()
+
+        # start extensions
+        for extension in config.EXTENSIONS:
+            try:
+                logger.info('loading extension: %s', extension)
+                extension_module = import_module('extensions.%s' % extension)
+                extension_module.init(self)
+            except Exception as e:
+                logger.error('Failed to load extension %s', extension)
+                traceback.print_exc()
+                return
+
+        self.running = True
 
     def stop(self):
         self.web_server.stop()
@@ -34,10 +52,11 @@ class StickOnlineServer:
             try:
                 client.disconnect()
             except Exception as e:
-                logging.info('Failed to disconnect client %s: %s' % (client, e))
+                logger.info('Failed to disconnect client %s: %s', client, e)
 
         # sleep for 5 seconds so all the clients have time to save
         time.sleep(5)
 
         self.game_server.terminated = True
         self.account_server.terminated = True
+        self.running = False
